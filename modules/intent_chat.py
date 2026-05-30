@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-意图识别 + RAG 聊天界面
+意图识别 + RAG + LLM 聊天界面
 
 用法：
     python -m modules.intent_chat          # 交互模式
@@ -27,8 +27,32 @@ INTENT_LABELS = {
 }
 
 
-def chat_once(router: IntentRouter, message: str):
-    """单次意图识别 + RAG 查询"""
+def get_llm():
+    """获取 LLM 实例（优先 MiniMax）"""
+    api_key = os.getenv("MINIMAX_API_KEY", "")
+    if not api_key:
+        return None
+    
+    try:
+        from .llm_providers import MiniMaxProvider
+        return MiniMaxProvider(
+            api_key=api_key,
+            base_url=os.getenv("MINIMAX_BASE_URL"),
+            model=os.getenv("MINIMAX_MODEL"),
+        )
+    except Exception:
+        return None
+
+
+def generate_reply(llm, system_prompt: str, user_message: str) -> str:
+    """生成回复"""
+    if not llm:
+        return "[未配置 LLM，请设置 MINIMAX_API_KEY]，系统提示已准备好。"
+    return llm.generate(system_prompt, user_message)
+
+
+def chat_once(router: IntentRouter, message: str, llm=None):
+    """单次意图识别 + RAG + LLM 查询"""
     result = router.process(message)
     
     # 显示识别结果
@@ -50,28 +74,38 @@ def chat_once(router: IntentRouter, message: str):
             if line.startswith("[") and "] " in line:
                 print(f"   {line}")
     
-    # 显示系统提示长度
     print(f"📝 系统提示: {len(result.system_prompt)} 字符")
     print(f"{'='*60}\n")
     
-    # 如果有股票数据，显示（后续 Phase 4 集成）
-    if hasattr(result, 'stock_data') and result.stock_data:
-        sd = result.stock_data
-        print(f"📊 实时数据: {sd.ts_code}")
-        print(f"   J={sd.j:.1f} DIF={sd.dif:.2f} 信号={sd.signal}")
-        print()
+    # 生成回复
+    if result.intent == "chat":
+        # chat 模式：不加载角色框架，直接用用户消息
+        print("💬 闲聊模式，不加载角色框架\n")
+        if llm:
+            reply = llm.generate("", message)
+        else:
+            reply = "[未配置 LLM，无法生成回复]"
+    else:
+        # 加载角色框架 + 知识上下文
+        if not result.system_prompt:
+            print("[系统提示为空]")
+            return
+        print(f"🤖 正在生成回复...")
+        reply = generate_reply(llm, result.system_prompt, message)
     
-    # 输出完整的系统提示（用于 LLM 调用）
-    # 实际使用时，这里会调 LLM 生成回答
-    print("系统提示词（前 500 字符）:")
-    print(result.system_prompt[:500])
-    print("...")
+    print(f"\n{'='*60}")
+    print(reply)
+    print(f"{'='*60}\n")
 
 
-def chat_interactive(router: IntentRouter):
+def chat_interactive(router: IntentRouter, llm):
     """交互模式"""
     print("\n" + "=" * 60)
     print("Z哥意图识别聊天")
+    if llm:
+        print("LLM: MiniMax")
+    else:
+        print("LLM: 未配置（仅显示路由结果）")
     print("输入消息自动识别意图并检索知识库")
     print("输入 'quit' 或 'exit' 退出")
     print("=" * 60 + "\n")
@@ -89,19 +123,20 @@ def chat_interactive(router: IntentRouter):
             print("再见！")
             break
         
-        chat_once(router, message)
+        chat_once(router, message, llm)
 
 
 def main():
     router = IntentRouter()
+    llm = get_llm()
     
     if len(sys.argv) > 1:
         # 单次查询
         message = " ".join(sys.argv[1:])
-        chat_once(router, message)
+        chat_once(router, message, llm)
     else:
         # 交互模式
-        chat_interactive(router)
+        chat_interactive(router, llm)
 
 
 if __name__ == "__main__":
