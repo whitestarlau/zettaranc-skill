@@ -113,18 +113,10 @@ class DataSyncer:
                 logger.warning("获取股票基本信息失败")
                 return 0
 
+            # 填充 NaN 以免插入失败，且保留必要的列
+            df = df[['ts_code', 'name', 'area', 'industry', 'market', 'list_date', 'is_hs']].fillna('')
             with get_connection() as conn:
-                cursor = conn.cursor()
-                for _, row in df.iterrows():
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO stock_basic
-                        (ts_code, name, area, industry, market, list_date, is_hs)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        row['ts_code'], row['name'], row.get('area'),
-                        row.get('industry'), row.get('market'),
-                        row.get('list_date'), row.get('is_hs')
-                    ))
+                df.to_sql('stock_basic', conn, if_exists='append', index=False, method='multi')
 
             self._log_sync("stock_basic", None, datetime.now().strftime("%Y%m%d"), "success")
             logger.info(f"股票基本信息同步完成，共 {len(df)} 只")
@@ -184,19 +176,25 @@ class DataSyncer:
 
             with get_connection() as conn:
                 cursor = conn.cursor()
-                for _, row in df.iterrows():
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO daily_kline
-                        (ts_code, trade_date, open, high, low, close, vol, amount,
-                         pct_chg, vol_ratio, is_limit_up, is_limit_down)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        row['ts_code'], row['trade_date'],
-                        row['open'], row['high'], row['low'], row['close'],
-                        row['vol'], row['amount'], row['pct_chg'],
+                
+                # 准备批量插入的数据
+                records = []
+                for row in df.itertuples(index=False):
+                    row_dict = row._asdict()
+                    records.append((
+                        row_dict['ts_code'], row_dict['trade_date'],
+                        row_dict['open'], row_dict['high'], row_dict['low'], row_dict['close'],
+                        row_dict['vol'], row_dict['amount'], row_dict.get('pct_chg', 0),
                         None,  # vol_ratio later
-                        row.get('is_limit_up', 0), row.get('is_limit_down', 0)
+                        row_dict.get('is_limit_up', 0), row_dict.get('is_limit_down', 0)
                     ))
+                
+                cursor.executemany("""
+                    INSERT OR REPLACE INTO daily_kline
+                    (ts_code, trade_date, open, high, low, close, vol, amount,
+                     pct_chg, vol_ratio, is_limit_up, is_limit_down)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, records)
 
             # 更新同步日志
             latest_date = df['trade_date'].max()
@@ -486,15 +484,19 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
 
             with get_connection() as conn:
                 cursor = conn.cursor()
-                for _, row in df.iterrows():
-                    values = [row.get(field_map.get(k, k), 0) for k in field_map.keys()]
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO tushare_indicator_cache
-                        (ts_code, trade_date, close, macd_dif, macd_dea, macd,
-                         kdj_k, kdj_d, kdj_j, rsi_6, rsi_12, rsi_24,
-                         boll_upper, boll_mid, boll_lower, cci)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, values)
+                records = []
+                for row in df.itertuples(index=False):
+                    row_dict = row._asdict()
+                    values = [row_dict.get(field_map.get(k, k), 0) for k in field_map.keys()]
+                    records.append(values)
+                    
+                cursor.executemany("""
+                    INSERT OR REPLACE INTO tushare_indicator_cache
+                    (ts_code, trade_date, close, macd_dif, macd_dea, macd,
+                     kdj_k, kdj_d, kdj_j, rsi_6, rsi_12, rsi_24,
+                     boll_upper, boll_mid, boll_lower, cci)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, records)
 
             latest_date = df['trade_date'].max()
             self._log_sync("stk_factor", ts_code, latest_date, "success")
@@ -569,22 +571,26 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
 
             with get_connection() as conn:
                 cursor = conn.cursor()
-                for _, row in df.iterrows():
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO moneyflow
-                        (ts_code, trade_date, buy_sm_amount, buy_md_amount,
-                         buy_lg_amount, buy_elg_amount, sell_sm_amount,
-                         sell_md_amount, sell_lg_amount, sell_elg_amount,
-                         net_mf, pct_mf)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        row['ts_code'], row['trade_date'],
-                        row.get('buy_sm_amount'), row.get('buy_md_amount'),
-                        row.get('buy_lg_amount'), row.get('buy_elg_amount'),
-                        row.get('sell_sm_amount'), row.get('sell_md_amount'),
-                        row.get('sell_lg_amount'), row.get('sell_elg_amount'),
-                        row.get('net_mf'), row.get('pct_mf')
+                records = []
+                for row in df.itertuples(index=False):
+                    row_dict = row._asdict()
+                    records.append((
+                        row_dict['ts_code'], row_dict['trade_date'],
+                        row_dict.get('buy_sm_amount'), row_dict.get('buy_md_amount'),
+                        row_dict.get('buy_lg_amount'), row_dict.get('buy_elg_amount'),
+                        row_dict.get('sell_sm_amount'), row_dict.get('sell_md_amount'),
+                        row_dict.get('sell_lg_amount'), row_dict.get('sell_elg_amount'),
+                        row_dict.get('net_mf'), row_dict.get('pct_mf')
                     ))
+                
+                cursor.executemany("""
+                    INSERT OR REPLACE INTO moneyflow
+                    (ts_code, trade_date, buy_sm_amount, buy_md_amount,
+                     buy_lg_amount, buy_elg_amount, sell_sm_amount,
+                     sell_md_amount, sell_lg_amount, sell_elg_amount,
+                     net_mf, pct_mf)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, records)
 
             self._log_sync("moneyflow", ts_code, trade_date, "success")
             return len(df)
