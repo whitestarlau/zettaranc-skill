@@ -3,14 +3,13 @@
 实现 Z哥 策略中的各种战法识别
 """
 
+import os
 import sqlite3
+from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
-
-# 数据库路径
-DB_PATH = "data/stock_data.db"
 
 from .indicators import DailyData, detect_four_brick_system, calculate_brick_value
 
@@ -116,9 +115,20 @@ class StrategySignal:
     priority: Priority = Priority.OBSERVE
 
 
+def _resolve_db_path() -> Path:
+    """动态解析数据库路径"""
+    path_str = os.getenv("DB_PATH", "data/stock_data.db")
+    path = Path(path_str)
+    if not path.is_absolute():
+        path = (Path(__file__).parent / path_str).resolve()
+    return path
+
+
 def get_db_connection() -> sqlite3.Connection:
-    """获取数据库连接"""
-    conn = sqlite3.connect(DB_PATH)
+    """获取数据库连接（动态读取 DB_PATH 环境变量）"""
+    db_path = _resolve_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
