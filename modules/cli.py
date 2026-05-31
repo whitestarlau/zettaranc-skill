@@ -192,11 +192,11 @@ def cmd_watchlist(args):
 
 def cmd_diagnose(args):
     """持仓诊断"""
-    from modules.portfolio_diagnosis import diagnose_stock
+    from modules.portfolio_diagnosis import diagnose_stock, format_report
 
     ts_code = args.ts_code
     diagnosis = diagnose_stock(ts_code, days=args.days)
-    print(diagnosis)
+    print(format_report(diagnosis))
 
 
 def main():
