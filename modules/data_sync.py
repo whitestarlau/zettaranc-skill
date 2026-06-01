@@ -8,6 +8,8 @@ import os
 import time
 import logging
 import threading
+import collections
+import multiprocessing
 import concurrent.futures
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
@@ -28,6 +30,67 @@ logger = logging.getLogger(__name__)
 # 中转 API 配置（从环境变量读取）
 TUSHARE_API_URL = os.environ.get("TUSHARE_API_URL", "")
 VERIFY_TOKEN_URL = os.environ.get("TUSHARE_VERIFY_TOKEN_URL", "")
+
+
+# ==================== 模块级限流器（v2.10.0 P1-4） ====================
+# 多进程安全：同机多进程共享同一把 multiprocessing.Lock
+# 限流仅同机多进程有效，跨机器需 Redis 协调（详见 plan P1-4 风险）
+class _RateLimiter:
+    """Tushare 限流器（多进程安全 + 滑动窗口 token bucket）
+
+    设计：
+    - 60s 滑动窗口内的请求计数（in-memory deque）
+    - multiprocessing.Lock 序列化 critical section
+    - TUSHARE_RPM env var 控制 max requests/min（默认 180，留 20 缓冲应对 200 上限）
+
+    用法：
+        _GLOBAL_LIMITER.wait()  # 阻塞直到安全可调
+    """
+
+    def __init__(self, max_per_min: int = 180):
+        self._max = max_per_min
+        self._window: collections.deque = collections.deque()
+        # 关键：multiprocessing.Lock 不是进程间共享的默认锁
+        # 在父进程创建，子进程 fork 后会继承一份
+        self._lock = multiprocessing.Lock()
+
+    def wait(self) -> None:
+        """阻塞直到 60s 窗口内有空位"""
+        with self._lock:
+            now = time.monotonic()
+            # 弹出 60s 外的旧时间戳
+            while self._window and (now - self._window[0]) > 60:
+                self._window.popleft()
+            if len(self._window) >= self._max:
+                # 等待最老一项出窗口
+                sleep_for = 60 - (now - self._window[0]) + 0.05  # +0.05s 缓冲
+                logger.debug(f"限流：等 {sleep_for:.2f}s（窗口已满 {self._max} req）")
+                time.sleep(sleep_for)
+                # 重新弹出（防止极端情况）
+                now = time.monotonic()
+                while self._window and (now - self._window[0]) > 60:
+                    self._window.popleft()
+            self._window.append(time.monotonic())
+
+    @property
+    def current_count(self) -> int:
+        """当前窗口内请求数（只读，调试用）"""
+        with self._lock:
+            now = time.monotonic()
+            while self._window and (now - self._window[0]) > 60:
+                self._window.popleft()
+            return len(self._window)
+
+
+# 模块级单例（v2.10.0 P1-4 替代原 instance-level _rate_limit_lock）
+_GLOBAL_LIMITER = _RateLimiter(
+    max_per_min=int(os.environ.get("TUSHARE_RPM", "180"))
+)
+
+
+def _rate_limit_global() -> None:
+    """模块级公开限流入口（v2.10.0 P1-4 新增，替代 instance-level _rate_limit）"""
+    _GLOBAL_LIMITER.wait()
 
 
 class DataSyncer:
@@ -53,23 +116,18 @@ class DataSyncer:
         self.pro = ts.pro_api()
         self.pro._DataApi__http_url = TUSHARE_API_URL
 
-        # 限流控制：120次/分钟
+        # 向后兼容：保留 instance-level attrs（外部可能引用）
+        # 但实际限流走模块级 _GLOBAL_LIMITER
         self.min_interval = 60 / 120
         self.last_request_time: dict[str, float] = {}
         self._rate_limit_lock = threading.Lock()
 
     def _rate_limit(self, api_name: str):
-        """线程安全的限流控制"""
-        with self._rate_limit_lock:
-            now = time.time()
-            last = self.last_request_time.get(api_name, 0)
-            elapsed = now - last
-            if elapsed < self.min_interval:
-                sleep_time = self.min_interval - elapsed
-                time.sleep(sleep_time)
-                self.last_request_time[api_name] = now + sleep_time
-            else:
-                self.last_request_time[api_name] = now
+        """线程安全的限流控制（v2.10.0 P1-4 改为调模块级 _GLOBAL_LIMITER）"""
+        # v2.10.0：原 per-instance lock 改用模块级 multiprocessing 安全限流器
+        _rate_limit_global()
+        # 保留旧字段更新，便于外部观察（不影响实际限流）
+        self.last_request_time[api_name] = time.time()
 
     def _log_sync(self, data_type: str, ts_code: Optional[str], last_date: str,
                   status: str, message: str = ""):
@@ -214,6 +272,44 @@ class DataSyncer:
             logger.error(f"日线数据同步失败 {ts_code}: {e}")
             self._log_sync("daily_kline", ts_code, "", "failed", str(e))
             return 0
+
+    def sync_missing(self, ts_codes: List[str], days: int = 730) -> Dict[str, int]:
+        """
+        同步 ts_codes 中"在 daily_kline 表里完全缺失"的股票（增量补齐）
+
+        与 sync_all_daily_kline 的区别：
+        - sync_all_daily_kline：所有 ts_codes 都同步（已有的会跳过早于 2 天的部分）
+        - sync_missing：只在 daily_kline 表里完全没有数据的才同步
+
+        用于"自选股清单第一次接入"或"补齐漏掉的股票"场景
+
+        Args:
+            ts_codes: 股票代码列表
+            days: 同步天数
+
+        Returns:
+            每只股票的更新条数
+        """
+        if not ts_codes:
+            return {}
+
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = ",".join(["?"] * len(ts_codes))
+            cursor.execute(
+                f"SELECT DISTINCT ts_code FROM daily_kline WHERE ts_code IN ({placeholders})",
+                ts_codes,
+            )
+            have = {row["ts_code"] for row in cursor.fetchall()}
+
+        missing = [c for c in ts_codes if c not in have]
+        logger.info(f"sync_missing: 共 {len(ts_codes)} 只，已有 {len(have)} 只，需补齐 {len(missing)} 只")
+
+        results = {}
+        for code in missing:
+            count = self.sync_daily_kline(code, days=days)
+            results[code] = count
+        return results
 
     def sync_all_daily_kline(self, ts_codes: Optional[List[str]] = None,
                               days: int = 730) -> Dict[str, int]:
@@ -470,6 +566,32 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
 
         logger.info(f"批量指标同步完成，成功 {sum(1 for v in results.values() if v > 0)}/{len(ts_codes)}")
         return results
+
+    def sync_daily_and_compute(self, ts_codes: Optional[List[str]] = None,
+                               days: int = 730) -> Dict[str, int]:
+        """
+        一站式：同步日线 K 线 + 同步指标缓存
+
+        这是 scripts/sync_and_compute.py 业务逻辑的接收方
+        （v2.10.0 之前是 ~300 行的内联实现）
+
+        Args:
+            ts_codes: 股票代码列表，None = 全市场
+            days: 同步天数
+
+        Returns:
+            每只股票的指标更新条数（dict[ts_code] = count）
+        """
+        kline_results = self.sync_all_daily_kline(ts_codes=ts_codes, days=days)
+        # 同步哪些股票有数据，传给指标计算
+        if ts_codes is None:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT DISTINCT ts_code FROM daily_kline")
+                ts_codes_for_indic = [row["ts_code"] for row in cursor.fetchall()]
+        else:
+            ts_codes_for_indic = [c for c, n in kline_results.items() if n > 0]
+        return self.sync_all_indicators(ts_codes=ts_codes_for_indic or None)
 
     # ==================== Tushare 官方指标（用于 diff 验证） ====================
 

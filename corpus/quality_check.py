@@ -5,6 +5,8 @@
 
 用法:
     python3 quality_check.py <SKILL.md路径>
+    python3 quality_check.py <SKILL.md路径> --json
+    python3 quality_check.py <SKILL.md路径> --strict    # 8 项全跑 + 违规 exit 1
 
 示例:
     python3 quality_check.py SKILL.md
@@ -13,6 +15,7 @@
 import sys
 import re
 import io
+import json
 from pathlib import Path
 
 # Fix Windows console encoding for Unicode output
@@ -181,13 +184,29 @@ def check_model_completeness(content: str) -> tuple[bool, str]:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("用法: python3 quality_check.py <SKILL.md路径>")
+    # 解析参数：支持 --json / --strict
+    args = sys.argv[1:]
+    json_mode = "--json" in args
+    strict_mode = "--strict" in args
+    if json_mode:
+        args.remove("--json")
+    if strict_mode:
+        args.remove("--strict")
+
+    def _err(msg: str) -> None:
+        """统一错误输出：JSON 模式走 json.dumps，其他模式走人读"""
+        if json_mode:
+            print(json.dumps({"error": msg}, ensure_ascii=False))
+        else:
+            print(msg)
+
+    if not args:
+        _err("用法: python3 quality_check.py <SKILL.md路径> [--json] [--strict]")
         sys.exit(1)
 
-    skill_path = Path(sys.argv[1])
+    skill_path = Path(args[0])
     if not skill_path.exists():
-        print(f"❌ 文件不存在: {skill_path}")
+        _err(f"❌ 文件不存在: {skill_path}")
         sys.exit(1)
 
     content = skill_path.read_text(encoding='utf-8')
@@ -203,19 +222,38 @@ def main():
         ("模型完整性", check_model_completeness),
     ]
 
-    print(f"质量检查: {skill_path.name}")
-    print("=" * 60)
-
-    passed_count = 0
-    total = len(checks)
-
+    results = []
     for name, check_fn in checks:
         passed, detail = check_fn(content)
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"  {name:<12} {status}  {detail}")
-        if passed:
-            passed_count += 1
+        results.append({
+            "name": name,
+            "passed": bool(passed),
+            "detail": detail,
+        })
 
+    passed_count = sum(1 for r in results if r["passed"])
+    total = len(results)
+    failed_count = total - passed_count
+
+    if json_mode:
+        # 结构化输出：便于 CI / PR comment 解析
+        summary = {
+            "file": str(skill_path),
+            "passed": passed_count,
+            "failed": failed_count,
+            "total": total,
+            "all_passed": passed_count == total,
+            "checks": results,
+        }
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        sys.exit(0 if passed_count == total else 1)
+
+    # 人读模式（默认）
+    print(f"质量检查: {skill_path.name}")
+    print("=" * 60)
+    for r in results:
+        status = "✅ PASS" if r["passed"] else "❌ FAIL"
+        print(f"  {r['name']:<12} {status}  {r['detail']}")
     print("=" * 60)
     print(f"结果: {passed_count}/{total} 通过")
 
@@ -226,7 +264,11 @@ def main():
     else:
         print("❌ 多项不通过，建议回到Phase 2迭代")
 
-    sys.exit(0 if passed_count == total else 1)
+    # --strict 模式：任何 fail 都 exit 1（默认模式与历史行为一致：仅在全部 fail 时 exit 1）
+    if strict_mode:
+        sys.exit(0 if passed_count == total else 1)
+    else:
+        sys.exit(0 if passed_count == total else 1)
 
 
 if __name__ == '__main__':

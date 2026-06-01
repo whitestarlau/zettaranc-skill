@@ -3,23 +3,11 @@
 Tushare Pro 高权限数据抓取脚本
 15000 积分接口调用，数据保存到 SQLite 数据库
 
-使用方式:
-    python scripts/fetch_tushare_data.py --help
-    python scripts/fetch_tushare_data.py stock_basic
-    python scripts/fetch_tushare_data.py daily 000001.SZ --start 20260101 --end 20260501
-    python scripts/fetch_tushare_data.py moneyflow 000001.SZ --date 20260509
-    python scripts/fetch_tushare_data.py limit_list --date 20260509
-    python scripts/fetch_tushare_data.py top_list --date 20260509
-    python scripts/fetch_tushare_data.py fina_indicator 000001.SZ --start 20250101 --end 20250501
-    python scripts/fetch_tushare_data.py dividend 000001.SZ
-    python scripts/fetch_tushare_data.py top10_holders 000001.SZ --date 20250501
-    python scripts/fetch_tushare_data.py daily_hsgt --start 20260101 --end 20260501
-    python scripts/fetch_tushare_data.py stock_top10_hsgt --date 20260509
-    python scripts/fetch_tushare_data.py concept_detail --code ie018
-    python scripts/fetch_tushare_data.py index_daily 000001.SH --start 20260101 --end 20260501
-    python scripts/fetch_tushare_data.py index_weight 000001.SH --date 20250501
-    python scripts/fetch_tushare_data.py realtime_quote --codes 600000.SH,000001.SZ
-    python scripts/fetch_tushare_data.py all
+⚠️  DEPRECATED (v2.10.0) ⚠️
+此脚本的功能已被以下模块覆盖：
+- 模块层：modules.tushare_client.TushareClient + modules.data_sync.DataSyncer
+- 同步入口：python -m modules.data_sync sync
+- 高权限接口按需迁移至 TushareClient 后，此脚本将在 v2.11.0 删除
 """
 
 import os
