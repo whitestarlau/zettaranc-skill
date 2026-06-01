@@ -20,7 +20,8 @@ jobs:
   realdata-weekly:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: ${{ secrets.TUSHARE_TOKEN != '' && secrets.TUSHARE_API_URL != '' }}
+    # secrets 不能在 job-level if: 用（GitHub Actions 限制）
+    # 测试本身有 pytest.mark.skipif 兜底，无 token 时整文件 skip
     continue-on-error: true
 
     steps:

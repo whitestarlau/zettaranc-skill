@@ -78,8 +78,8 @@ jobs:
   e2e-realdata:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # 仅在配置了 TUSHARE_TOKEN secret 时才跑（v2.10.0 观察期不阻塞）
-    if: ${{ secrets.TUSHARE_TOKEN != '' && secrets.TUSHARE_API_URL != '' }}
+    # secrets 不能在 job-level if: 用（GitHub Actions 限制）
+    # 测试本身有 pytest.mark.skipif 兜底，无 token 时整文件 skip
     continue-on-error: true
 
     steps:
