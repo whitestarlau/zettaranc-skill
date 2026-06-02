@@ -26,7 +26,6 @@ import os
 # dotenv 加载已移至 modules/__init__.py（包级别一次性加载）
 
 
-
 # CLI 中文别名 → screener 英文 criteria 的统一映射
 STRATEGY_ALIAS = {
     "B1": "b1",

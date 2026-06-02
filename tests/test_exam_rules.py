@@ -6,7 +6,6 @@
 """
 
 
-
 class TestB1ExamRules:
     """B1 战法模块 10 道题核心规则验证"""
 

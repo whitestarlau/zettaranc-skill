@@ -13,7 +13,6 @@ import sys
 from pathlib import Path
 
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 QUALITY_CHECK = PROJECT_ROOT / "corpus" / "quality_check.py"
 SKILL_MD = PROJECT_ROOT / "SKILL.md"
