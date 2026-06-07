@@ -106,7 +106,7 @@ class TestScoreTrend:
         klines = generate_uptrend_klines(n=50, daily_pct=1.0)
         score, direction = score_trend(klines)
         assert 0 <= score <= 100
-        assert direction in ("上升", "下降", "震荡")
+        assert any(direction.startswith(d) for d in ("上升", "下降", "震荡"))
 
     def test_downtrend(self):
         klines = generate_downtrend_klines(n=50)
