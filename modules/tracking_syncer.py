@@ -309,8 +309,8 @@ class TrackingSyncer:
             bbi = indicator_data.get("bbi")
             macd_dif = indicator_data.get("macd_dif")
             macd_dea = indicator_data.get("macd_dea")
-            k_value = indicator_data.get("k_value")
-            d_value = indicator_data.get("d_value")
+            indicator_data.get("k_value")
+            indicator_data.get("d_value")
             vol_ratio = indicator_data.get("vol_ratio")
 
             # 获取 K 线数据
