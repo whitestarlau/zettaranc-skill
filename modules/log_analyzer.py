@@ -311,7 +311,7 @@ class LogAnalyzer:
         # 优化建议
         suggestions = report.get("optimization_suggestions", [])
         if suggestions:
-            print(f"\n优化建议:")
+            print("\n优化建议:")
             print("-" * 40)
             for i, suggestion in enumerate(suggestions, 1):
                 print(f"  {i}. [{suggestion['priority'].upper()}] {suggestion['suggestion']}")

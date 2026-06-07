@@ -263,7 +263,7 @@ def main():
     result = updater.run_harness_update()
 
     if result.get("success"):
-        print(f"\n更新成功:")
+        print("\n更新成功:")
         print(f"复盘月份: {result.get('review_month')}")
         print(f"更新建议数量: {result.get('updates', {}).get('total_updates', 0)}")
 
