@@ -89,7 +89,7 @@ def run_round(
         )
 
     # 2. 评分
-    new_score = _score_proposal(proposal)  # V1 stub monthly_stats
+    new_score = _score_proposal(proposal, old_monthly_stats={})  # V1 stub monthly_stats
 
     # 3. ratchet: new > old 才 keep
     delta = new_score - old_score
