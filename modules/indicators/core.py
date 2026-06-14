@@ -68,7 +68,6 @@ class DailyData:
     macd_dea: float | None = None
     macd_hist: float | None = None
 
-
     def __getitem__(self, key: str) -> Any:
         try:
             return getattr(self, key)
