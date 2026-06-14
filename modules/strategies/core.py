@@ -226,8 +226,8 @@ def _calc_bbi(klines: list[dict]) -> float:
 def _get_kdj(klines: list[DailyData], index: int) -> tuple[float, float, float]:
     """获取 KDJ，有属性直接读取，无属性则动态计算并缓存"""
     today = klines[index]
-    if hasattr(today, "kdj_j"):
-        return today.kdj_k, today.kdj_d, today.kdj_j
+    if getattr(today, "kdj_j", None) is not None:
+        return today.kdj_k or 0.0, today.kdj_d or 0.0, today.kdj_j or 0.0
     from ..indicators import calculate_kdj
 
     k, d, j = calculate_kdj(klines[: index + 1])
@@ -238,8 +238,8 @@ def _get_kdj(klines: list[DailyData], index: int) -> tuple[float, float, float]:
 def _get_bbi(klines: list[DailyData], index: int) -> float:
     """获取 BBI，有属性直接读取，无属性则动态计算并缓存"""
     today = klines[index]
-    if hasattr(today, "bbi"):
-        return today.bbi
+    if getattr(today, "bbi", None) is not None:
+        return today.bbi or 0.0
     from ..indicators import calculate_bbi
 
     bbi = calculate_bbi(klines[: index + 1])
@@ -250,11 +250,11 @@ def _get_bbi(klines: list[DailyData], index: int) -> float:
 def _get_macd_dif(klines: list[DailyData], index: int) -> float:
     """获取 MACD DIF，有属性直接读取，无属性则动态计算并缓存"""
     today = klines[index]
-    if hasattr(today, "macd_dif"):
-        return today.macd_dif
+    if getattr(today, "macd_dif", None) is not None:
+        return today.macd_dif or 0.0
     from ..indicators import calculate_macd
 
     difs, _, _ = calculate_macd(klines[: index + 1])
     for i in range(len(difs)):
         klines[i].macd_dif = difs[i]
-    return today.macd_dif
+    return today.macd_dif or 0.0

@@ -582,7 +582,7 @@ def _daily_to_dict(klines: list[DailyData]) -> list[dict]:
     return result
 
 
-def _analyze_worker(ts_code: str) -> tuple[str, tuple[list[DailyData], StockScore] | None]:
+def _analyze_worker(ts_code: str) -> tuple[str, list[DailyData], StockScore] | None:
     """
     并行 worker：评分单只股票
     必须在模块顶层定义，以便 ProcessPoolExecutor 可以 pickle
@@ -636,36 +636,32 @@ def _filter_stock(result: tuple[str, list[DailyData], StockScore], criteria: str
     elif criteria == "super_b1":
         from .strategies import detect_sb1
 
-        dict_klines = _daily_to_dict(klines)
         for i in range(max(10, len(klines) - 5), len(klines)):
-            sig = detect_sb1(dict_klines, i)
+            sig = detect_sb1(klines, i)
             if sig:
                 score.warnings.append(f"超级B1 J={sig.details.get('j', 0):.1f}")
                 return True
     elif criteria == "changan":
         from .strategies import detect_changan
 
-        dict_klines = _daily_to_dict(klines)
         for i in range(max(3, len(klines) - 5), len(klines)):
-            sig = detect_changan(dict_klines, i)
+            sig = detect_changan(klines, i)
             if sig:
                 score.reasons.append("长安战法 胜率75%")
                 return True
     elif criteria == "b2_breakout":
         from .strategies import detect_b2
 
-        dict_klines = _daily_to_dict(klines)
         for i in range(max(15, len(klines) - 5), len(klines)):
-            sig = detect_b2(dict_klines, i)
+            sig = detect_b2(klines, i)
             if sig:
                 score.reasons.append(f"B2突破 涨{sig.details.get('pct_chg', 0):.1f}%")
                 return True
     elif criteria == "b3_consensus":
         from .strategies import detect_b3
 
-        dict_klines = _daily_to_dict(klines)
         for i in range(max(20, len(klines) - 5), len(klines)):
-            sig = detect_b3(dict_klines, i)
+            sig = detect_b3(klines, i)
             if sig:
                 score.reasons.append("B3分歧转一致")
                 return True

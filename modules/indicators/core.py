@@ -60,6 +60,14 @@ class DailyData:
     is_jiayin: bool = False
     is_yinxian: bool = False
     is_fangliang_yinxian: bool = False
+    kdj_k: float | None = None
+    kdj_d: float | None = None
+    kdj_j: float | None = None
+    bbi: float | None = None
+    macd_dif: float | None = None
+    macd_dea: float | None = None
+    macd_hist: float | None = None
+
 
     def __getitem__(self, key: str) -> Any:
         try:
