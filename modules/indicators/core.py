@@ -2,7 +2,8 @@
 技术指标计算模块 — 核心基础类型与数学工具
 """
 
-from typing import Optional
+from typing import Optional, Any
+
 import os
 import sqlite3
 from dataclasses import dataclass
