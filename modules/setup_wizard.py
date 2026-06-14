@@ -40,7 +40,7 @@ def get_mode_display_name(mode: str) -> str:
     return MODE_NAMES.get(mode, mode)
 
 
-def write_env_file(token: str | None = None, mode: str = MODE_NORMAL, env_path: Optional[Path] = None) -> str:
+def write_env_file(token: str | None = None, mode: str = MODE_NORMAL, env_path: Path | None = None) -> str:
     """
     写入 .env 文件
 

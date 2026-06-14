@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
+from modules.database import get_db_connection
+
 
 from ..indicators import DailyData
 
@@ -20,7 +22,6 @@ def _ensure_daily_klines(klines: list) -> list[DailyData]:
     if isinstance(klines[0], DailyData):
         return klines
     return _dict_to_daily(klines)
-
 
 
 class StrategyType(Enum):
@@ -108,7 +109,7 @@ class StrategySignal:
     priority: Priority = Priority.OBSERVE
 
 
-from modules.database import get_db_connection
+
 
 
 def get_kline_data(ts_code: str, days: int = 120) -> list[dict]:
@@ -212,6 +213,7 @@ def _dict_to_daily(klines: list[dict]) -> list[DailyData]:
 def _calc_kdj(klines: list[dict]) -> tuple[float, float, float]:
     """通过 indicators.py 计算 KDJ (遗留调用向后兼容)"""
     from ..indicators import calculate_kdj
+
     daily = _dict_to_daily(klines)
     return calculate_kdj(daily)
 
@@ -219,6 +221,7 @@ def _calc_kdj(klines: list[dict]) -> tuple[float, float, float]:
 def _calc_bbi(klines: list[dict]) -> float:
     """通过 indicators.py 计算 BBI (遗留调用向后兼容)"""
     from ..indicators import calculate_bbi
+
     daily = _dict_to_daily(klines)
     return calculate_bbi(daily)
 
@@ -229,7 +232,8 @@ def _get_kdj(klines: list[DailyData], index: int) -> tuple[float, float, float]:
     if hasattr(today, "kdj_j"):
         return today.kdj_k, today.kdj_d, today.kdj_j
     from ..indicators import calculate_kdj
-    k, d, j = calculate_kdj(klines[:index+1])
+
+    k, d, j = calculate_kdj(klines[: index + 1])
     today.kdj_k, today.kdj_d, today.kdj_j = k, d, j
     return k, d, j
 
@@ -240,7 +244,8 @@ def _get_bbi(klines: list[DailyData], index: int) -> float:
     if hasattr(today, "bbi"):
         return today.bbi
     from ..indicators import calculate_bbi
-    bbi = calculate_bbi(klines[:index+1])
+
+    bbi = calculate_bbi(klines[: index + 1])
     today.bbi = bbi
     return bbi
 
@@ -251,7 +256,8 @@ def _get_macd_dif(klines: list[DailyData], index: int) -> float:
     if hasattr(today, "macd_dif"):
         return today.macd_dif
     from ..indicators import calculate_macd
-    difs, _, _ = calculate_macd(klines[:index+1])
+
+    difs, _, _ = calculate_macd(klines[: index + 1])
     for i in range(len(difs)):
         klines[i].macd_dif = difs[i]
     return today.macd_dif

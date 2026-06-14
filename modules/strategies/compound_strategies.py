@@ -3,7 +3,6 @@ from ..indicators import DailyData
 from .core import StrategyType, StrategySignal, Priority, Action, _get_kdj, _ensure_daily_klines
 
 
-
 def detect_changan(klines: list[DailyData], index: int, kirin_context: dict | None = None) -> StrategySignal | None:
     """
     检测长安战法（已升级 MDC 验证 + 麒麟背景）
@@ -24,7 +23,6 @@ def detect_changan(klines: list[DailyData], index: int, kirin_context: dict | No
     klines[index - 2]
     day2 = klines[index - 1]
     day3 = klines[index]
-
 
     # 1. 第一天：B1（J<-13）
     k1, d1, j1 = _get_kdj(klines, index - 2)
@@ -90,7 +88,6 @@ def detect_sifen_zhiyi_sanyin(klines: list[DailyData], index: int) -> StrategySi
     today = klines[index]
     yesterday = klines[index - 1]
 
-
     # 昨日大阳线
     if yesterday["pct_chg"] < 3:
         return None
@@ -136,7 +133,6 @@ def detect_nana(klines: list[DailyData], index: int, kirin_context: dict | None 
         return None
 
     klines = _ensure_daily_klines(klines)
-
 
     # 检查连续放量上涨（最近3-5天）
     rise_count = 0
@@ -213,7 +209,6 @@ def detect_yidong_dilian(klines: list[DailyData], index: int) -> StrategySignal 
 
     klines = _ensure_daily_klines(klines)
 
-
     today = klines[index]
 
     # 检查前几天是否有异动
@@ -273,7 +268,6 @@ def detect_pinghang(klines: list[DailyData], index: int) -> StrategySignal | Non
         return None
 
     klines = _ensure_daily_klines(klines)
-
 
     # 收集最近7天内的放量阳线索引
     yang_indices = []
@@ -354,7 +348,6 @@ def detect_kengqi(klines: list[DailyData], index: int) -> StrategySignal | None:
 
     klines = _ensure_daily_klines(klines)
 
-
     today = klines[index]
 
     # 找坑：最近15天内的最低点
@@ -430,7 +423,6 @@ def detect_duichen_va(klines: list[DailyData], index: int) -> StrategySignal | N
         return None
 
     klines = _ensure_daily_klines(klines)
-
 
     today = klines[index]
 

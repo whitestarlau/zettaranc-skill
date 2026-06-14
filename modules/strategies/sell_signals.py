@@ -62,6 +62,7 @@ def detect_s1(klines: list[DailyData], index: int, kirin_context: dict | None = 
     chuhuo_score = 0
     try:
         from ..indicators import detect_chuhuo_wushi
+
         chuhuo = detect_chuhuo_wushi(klines[: index + 1])
         chuhuo_score = chuhuo.get("total_score", 0)
         if chuhuo_score >= 2:
@@ -142,6 +143,7 @@ def detect_s2(klines: list[DailyData] | None, index: int, dif_list: list[float] 
         # 联动出货五式验证
         try:
             from ..indicators import detect_chuhuo_wushi
+
             chuhuo = detect_chuhuo_wushi(klines[: index + 1])
             chuhuo_score = chuhuo.get("total_score", 0)
             if chuhuo_score >= 2:
@@ -218,6 +220,7 @@ def detect_s3(klines: list[DailyData], index: int) -> StrategySignal | None:
     # 联动出货五式验证
     try:
         from ..indicators import detect_chuhuo_wushi
+
         chuhuo = detect_chuhuo_wushi(klines[: index + 1])
         chuhuo_score = chuhuo.get("total_score", 0)
         if chuhuo_score >= 2:

@@ -108,7 +108,8 @@ def diagnose_stock(ts_code: str, days: int = 100) -> DiagnosisReport:
 
     # K线数据（用于防卖飞评分和麒麟会阶段）
     klines_daily = get_kline_data(ts_code, days=days)
-    klines_dict = _daily_to_dict(klines_daily)
+
+
 
     # 防卖飞评分
     sell_score, sell_desc, sell_details = calculate_sell_score(klines_daily)

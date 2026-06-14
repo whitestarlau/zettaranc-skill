@@ -35,9 +35,6 @@ from .sell_signals import (
 )
 
 
-
-
-
 def _post_process_signals(signals: list[StrategySignal]) -> list[StrategySignal]:
     """
     信号后处理：
@@ -358,6 +355,7 @@ def detect_all_strategies(ts_code: str, days: int = 120) -> list[StrategySignal]
 
         # ========== P2 指标：三波理论 ==========
         from ..indicators import detect_three_waves
+
         wave = detect_three_waves(daily_klines)
         if wave["wave"] != "未知" and wave["confidence"] >= 0.5:
             wave_map = {
@@ -388,14 +386,13 @@ def detect_all_strategies(ts_code: str, days: int = 120) -> list[StrategySignal]
                         confidence=wave["confidence"],
                         description=desc,
                         details={"price": daily_klines[-1].close},
-                        priority=Priority.OPPORTUNITY
-                        if st in (StrategyType.B1, StrategyType.B2)
-                        else Priority.OBSERVE,
+                        priority=Priority.OPPORTUNITY if st in (StrategyType.B1, StrategyType.B2) else Priority.OBSERVE,
                     )
                 )
 
         # ========== P2 指标：麒麟会四阶段 ==========
         from ..indicators import detect_kirin_stage
+
         kirin = detect_kirin_stage(daily_klines)
         if kirin["stage"] != "未知" and kirin["confidence"] >= 0.4:
             kirin_map = {
@@ -421,7 +418,6 @@ def detect_all_strategies(ts_code: str, days: int = 120) -> list[StrategySignal]
 
     # ===== 信号后处理：去重 + 截断 + 排序 =====
     signals = _post_process_signals(signals)
-
 
     return signals
 

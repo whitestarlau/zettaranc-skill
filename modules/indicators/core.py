@@ -12,7 +12,8 @@ from pathlib import Path
 
 # dotenv 加载已移至 modules/__init__.py（包级别一次性加载，override=True）
 
-from modules.database import DB_PATH as _db_path
+from modules.database import DB_PATH as _db_path, get_db_connection
+
 DB_PATH = str(_db_path)
 
 # 数据模式
@@ -257,7 +258,7 @@ class IndicatorResult:
     market_dir: str = "NEUTRAL"
 
 
-from modules.database import get_db_connection
+
 
 
 def calculate_ma(prices: list[float], period: int) -> float:

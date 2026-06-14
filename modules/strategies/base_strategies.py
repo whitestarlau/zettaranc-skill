@@ -137,7 +137,6 @@ def detect_b2(klines: list[DailyData], index: int, kirin_context: dict | None = 
     today = klines[index]
     yesterday = klines[index - 1]
 
-
     # 1. 核心条件：检查是否有B1在前几日
     has_b1 = False
     for i in range(5, min(15, index)):
@@ -189,9 +188,7 @@ def detect_b2(klines: list[DailyData], index: int, kirin_context: dict | None = 
     if boll_upper_today and boll_lower_today and boll_upper_yesterday and boll_lower_yesterday:
         # 简单判断开口：width 增加
         today_width = (boll_upper_today - boll_lower_today) / boll_mid_today if boll_mid_today else 0
-        prev_width = (
-            (boll_upper_yesterday - boll_lower_yesterday) / boll_mid_yesterday if boll_mid_yesterday else 0
-        )
+        prev_width = (boll_upper_yesterday - boll_lower_yesterday) / boll_mid_yesterday if boll_mid_yesterday else 0
         if today_width > prev_width * 1.05:
             confidence += 0.05
             mdc_details.append("布林开口向上")
@@ -213,9 +210,9 @@ def detect_b2(klines: list[DailyData], index: int, kirin_context: dict | None = 
     dmi_plus_yesterday = getattr(yesterday, "dmi_plus", None)
     dmi_minus_yesterday = getattr(yesterday, "dmi_minus", None)
     if dmi_plus_today and dmi_minus_today and dmi_plus_yesterday and dmi_minus_yesterday:
-        if _safe_num(dmi_plus_yesterday) < _safe_num(dmi_minus_yesterday) and _safe_num(
-            dmi_plus_today
-        ) > _safe_num(dmi_minus_today):
+        if _safe_num(dmi_plus_yesterday) < _safe_num(dmi_minus_yesterday) and _safe_num(dmi_plus_today) > _safe_num(
+            dmi_minus_today
+        ):
             confidence += 0.10
             mdc_details.append("DMI趋势金叉")
 
@@ -256,7 +253,6 @@ def detect_b3(klines: list[DailyData], index: int) -> StrategySignal | None:
 
     klines = _ensure_daily_klines(klines)
     today = klines[index]
-
 
     # 检查前几日是否有B2
     has_b2 = False

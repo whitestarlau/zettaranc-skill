@@ -1,5 +1,5 @@
-from typing import Tuple
 from ..core import DailyData, calculate_ma, calculate_ema
+
 
 
 def calculate_zg_white(klines: list[DailyData]) -> float:

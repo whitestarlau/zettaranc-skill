@@ -56,9 +56,6 @@ class MarketStatus:
     reasons: list[str] = field(default_factory=list)
 
 
-
-
-
 def get_all_stocks() -> list[dict]:
     """获取所有股票基本信息"""
     conn = get_db_connection()
@@ -122,6 +119,7 @@ def calculate_vol_ma(vols: list[float], period: int) -> float:
 def calculate_kdj(klines: list, period: int = 9) -> tuple[float, float, float]:
     """计算 KDJ 指标，支持 DailyData 列表或 dict 列表"""
     from .indicators import calculate_kdj as canonical_kdj
+
     if klines and isinstance(klines[0], dict):
         klines = _dict_to_daily(klines)
     return canonical_kdj(klines, period)
@@ -130,11 +128,10 @@ def calculate_kdj(klines: list, period: int = 9) -> tuple[float, float, float]:
 def calculate_bbi(klines: list) -> float:
     """计算 BBI 指标，支持 DailyData 列表或 dict 列表"""
     from .indicators import calculate_bbi as canonical_bbi
+
     if klines and isinstance(klines[0], dict):
         klines = _dict_to_daily(klines)
     return canonical_bbi(klines)
-
-
 
 
 def _dict_to_daily(klines: list[dict]) -> list[DailyData]:
@@ -218,6 +215,7 @@ def is_perfect_pattern(klines: list) -> tuple[bool, list[str]]:
     is_perfect = len(reasons) >= 2 and len(warnings) == 0
 
     return is_perfect, reasons
+
 
 def score_b1_opportunity(klines: list) -> tuple[float, list[str]]:
     """
@@ -443,8 +441,6 @@ def score_risk(klines: list) -> tuple[float, list[str]]:
     return max(0, min(100, score)), warnings
 
 
-
-
 def analyze_stock(ts_code: str, klines: list[DailyData] | None = None) -> StockScore:
     """
     综合评分单只股票
@@ -562,7 +558,7 @@ def _daily_to_dict(klines: list[DailyData]) -> list[dict]:
     for i, k in enumerate(klines):
         prev_close = klines[i - 1].close if i > 0 else k.close
         prev_vol = klines[i - 1].vol if i > 0 else k.vol
-        
+
         result.append(
             {
                 "ts_code": k.ts_code,

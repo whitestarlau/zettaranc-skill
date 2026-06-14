@@ -236,9 +236,6 @@ class TestDetectS3:
         assert detect_s3(klines, 9) is None
 
 
-
-
-
 class TestDetectPinghang:
     def test_insufficient_data(self):
         klines = generate_uptrend_klines(n=5)
