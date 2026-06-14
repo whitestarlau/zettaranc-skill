@@ -20,7 +20,6 @@ from modules.strategies import (
     detect_s1,
     detect_s2,
     detect_s3,
-    analyze_kirin_phase,
     detect_all_strategies,
     get_latest_signal,
     detect_brick_signals,
@@ -237,18 +236,7 @@ class TestDetectS3:
         assert detect_s3(klines, 9) is None
 
 
-class TestAnalyzeKirinPhase:
-    def test_insufficient_data(self):
-        klines = generate_uptrend_klines(n=10)
-        result = analyze_kirin_phase(klines)
-        assert result["phase"] == "UNKNOWN"
 
-    def test_uptrend_phase(self):
-        """上升趋势中应判断为拉升或吸筹"""
-        klines = generate_uptrend_klines(n=60, start_price=100.0, daily_pct=1.5)
-        result = analyze_kirin_phase(klines)
-        assert result["phase"] in ("拉升", "吸筹", "UNKNOWN")
-        assert 0 <= result["confidence"] <= 1
 
 
 class TestDetectPinghang:

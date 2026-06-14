@@ -64,11 +64,17 @@ def get_db_path() -> Path:
     return path
 
 
+def get_db_connection() -> sqlite3.Connection:
+    """获取数据库连接（动态读取 DB_PATH 环境变量）"""
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 @contextmanager
 def get_connection() -> Generator[sqlite3.Connection, None, None]:
     """获取数据库连接的上下文管理器"""
-    conn = sqlite3.connect(get_db_path())
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
     # 开启 WAL 模式以提升并发和写入性能
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
