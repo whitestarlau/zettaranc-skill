@@ -58,3 +58,43 @@ class TushareClient:
         except Exception as e:
             logger.error(f"get_top_list failed: {e}")
             return None
+
+
+# 测试
+if __name__ == "__main__":
+    import sys
+    import io
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    logging.basicConfig(level=logging.INFO)
+
+    client = TushareClient()
+    print("=" * 50)
+    print("Tushare 中转 API 连通性测试")
+    print("=" * 50)
+
+    if client.check_connection():
+        print("[PASS] 连通性测试通过")
+    else:
+        print("[FAIL] 连通性测试失败")
+
+    print("\n=== 平安银行 (000001.SZ) 日线 ===")
+    df = client.get_daily("000001.SZ", "20250508", "20250515")
+    if df is not None and len(df) > 0:
+        print(df[["trade_date", "open", "high", "low", "close", "pct_chg"]].to_string(index=False))
+    else:
+        print("无数据")
+
+    print("\n=== 沪深300 (000300.SH) 指数日线 ===")
+    df2 = client.get_index_daily("000300.SH", "20250508", "20250515")
+    if df2 is not None and len(df2) > 0:
+        print(df2[["trade_date", "open", "high", "low", "close", "pct_chg"]].to_string(index=False))
+    else:
+        print("无数据")
+
+    print("\n=== 实时行情 ===")
+    df3 = client.get_realtime_quote(["000300.SH", "000001.SZ"])
+    if df3 is not None and len(df3) > 0:
+        print(df3[["TS_CODE", "NAME", "PRICE", "HIGH", "LOW", "VOLUME"]].to_string(index=False))
+    else:
+        print("无数据")
