@@ -24,10 +24,17 @@ def check_env_exists() -> bool:
     if not env_path.exists():
         return False
 
-    # 检查是否有有效的 token（不是占位符）
-    token = os.environ.get("TUSHARE_TOKEN", "")
     data_mode = os.environ.get("DATA_MODE", "")
-    return bool(token) and "你的" not in token and data_mode != ""
+    if not data_mode:
+        return False
+
+    # JNB 模式需要有效 token
+    if data_mode == "jnb":
+        token = os.environ.get("TUSHARE_TOKEN", "")
+        return bool(token) and "你的" not in token
+
+    # websearch 模式只需 DATA_MODE 有值即可
+    return True
 
 
 def check_data_mode() -> str | None:
@@ -103,6 +110,24 @@ def test_jnb_connection(token: str) -> bool:
         return client.check_connection()
     except Exception as e:
         print(f"  连接测试失败: {e}")
+        return False
+
+
+def test_data_source_connection() -> bool:
+    """
+    测试当前配置的数据源连通性
+    使用 create_default_provider 检测所有已注册 Provider
+
+    Returns:
+        True 表示至少有一个数据源可用
+    """
+    from .providers import create_default_provider
+
+    try:
+        provider = create_default_provider()
+        return provider.check_connection()
+    except Exception as e:
+        print(f"  数据源连通性测试失败: {e}")
         return False
 
 

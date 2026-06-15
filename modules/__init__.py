@@ -21,6 +21,14 @@ from .setup_wizard import run_wizard, check_env_exists, check_data_mode  # noqa:
 from .trade_parser import TradeParser, ParseResult, format_trade_for_review  # noqa: E402
 from .trade_manager import TradeManager, trade_manager  # noqa: E402
 from .trade_reviewer import TradeReviewer, ReviewContext, create_reviewer  # noqa: E402
+from .providers import (  # noqa: E402
+    DataSourceProvider,
+    CompositeDataProvider,
+    TushareProvider,
+    MootdxProvider,
+    BaostockProvider,
+    create_default_provider,
+)
 
 __all__ = [
     # 数据库
@@ -29,6 +37,13 @@ __all__ = [
     "init_database",
     # Tushare
     "TushareClient",
+    # 数据源提供者
+    "DataSourceProvider",
+    "CompositeDataProvider",
+    "TushareProvider",
+    "MootdxProvider",
+    "BaostockProvider",
+    "create_default_provider",
     # 初始化向导
     "run_wizard",
     "check_env_exists",
