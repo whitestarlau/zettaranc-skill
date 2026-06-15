@@ -1,4 +1,5 @@
 """Tushare 数据源实现（实现 DataSourceProvider 抽象基类）"""
+import datetime
 import os
 import time
 import logging
@@ -102,7 +103,6 @@ class TushareProvider(DataSourceProvider):
             return None
         self._rate_limit()
         try:
-            import datetime
             if not start_date:
                 start_date = "19900101"
             if not end_date:

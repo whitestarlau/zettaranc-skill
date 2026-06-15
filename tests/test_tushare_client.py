@@ -54,6 +54,17 @@ class TestTushareClientInit:
         client = TushareClient(token="custom_token_123")
         assert client.token == "custom_token_123"
 
+    def test_jnb_mode_validation_in_constructor(self, mock_env_for_tests):
+        """JNB 模式下 TushareClient 构造函数验证配置"""
+        os.environ["DATA_MODE"] = "jnb"
+        os.environ.pop("TUSHARE_TOKEN", None)
+        os.environ["TUSHARE_API_URL"] = "https://test.example.com"
+        import importlib
+        import modules.tushare_client as tc
+        importlib.reload(tc)
+        with pytest.raises(ValueError, match="TUSHARE_TOKEN"):
+            tc.TushareClient()
+
     def test_default_rate_limit_interval(self, mock_env_for_tests):
         """默认限流间隔 0.55s"""
         os.environ["DATA_MODE"] = "websearch"
@@ -116,7 +127,7 @@ class TestApiMethods:
     def test_get_daily_returns_dataframe(self, client):
         """get_daily 正常返回 DataFrame"""
         mock_df = pd.DataFrame({"trade_date": ["20260115"], "close": [100.0]})
-        with patch("modules.tushare_client.ts.pro_bar", return_value=mock_df):
+        with patch.object(client._provider, "get_daily", return_value=mock_df):
             result = client.get_daily("600519.SH", "20260101", "20260115")
             assert result is not None
             assert len(result) == 1
@@ -124,107 +135,100 @@ class TestApiMethods:
 
     def test_get_daily_exception_returns_none(self, client):
         """get_daily 异常时返回 None"""
-        with patch("modules.tushare_client.ts.pro_bar", side_effect=Exception("API error")):
+        with patch.object(client._provider, "get_daily", side_effect=Exception("API error")):
             result = client.get_daily("600519.SH", "20260101", "20260115")
             assert result is None
 
     def test_get_index_daily_returns_dataframe(self, client):
         mock_df = pd.DataFrame({"trade_date": ["20260115"], "close": [3500.0]})
-        client._pro = MagicMock()
-        client._pro.index_daily.return_value = mock_df
-        result = client.get_index_daily("000300.SH", "20260101", "20260115")
-        assert len(result) == 1
+        with patch.object(client._provider, "get_index_daily", return_value=mock_df):
+            result = client.get_index_daily("000300.SH", "20260101", "20260115")
+            assert len(result) == 1
 
     def test_get_index_daily_exception_returns_none(self, client):
-        client._pro = MagicMock()
-        client._pro.index_daily.side_effect = Exception("API error")
-        result = client.get_index_daily("000300.SH", "20260101", "20260115")
-        assert result is None
+        with patch.object(client._provider, "get_index_daily", side_effect=Exception("API error")):
+            result = client.get_index_daily("000300.SH", "20260101", "20260115")
+            assert result is None
 
     def test_get_realtime_quote_returns_dataframe(self, client):
         mock_df = pd.DataFrame({"TS_CODE": ["600519.SH"], "PRICE": [1800.0]})
-        with patch("modules.tushare_client.ts.realtime_quote", return_value=mock_df):
+        with patch.object(client._provider, "get_realtime_quote", return_value=mock_df):
             result = client.get_realtime_quote(["600519.SH"])
             assert len(result) == 1
 
     def test_get_realtime_quote_exception_returns_none(self, client):
-        with patch("modules.tushare_client.ts.realtime_quote", side_effect=Exception("API error")):
+        with patch.object(client._provider, "get_realtime_quote", side_effect=Exception("API error")):
             result = client.get_realtime_quote(["600519.SH"])
             assert result is None
 
     def test_get_moneyflow(self, client):
         mock_df = pd.DataFrame({"ts_code": ["600519.SH"], "buy_sm_amount": [1000.0]})
-        client._pro = MagicMock()
-        client._pro.moneyflow.return_value = mock_df
-        result = client.get_moneyflow("600519.SH", "20260115")
-        assert len(result) == 1
+        with patch.object(client._provider, "get_moneyflow", return_value=mock_df):
+            result = client.get_moneyflow("600519.SH", "20260115")
+            assert len(result) == 1
 
     def test_get_stock_basic_with_ts_code(self, client):
         mock_df = pd.DataFrame({"ts_code": ["600519.SH"], "name": ["贵州茅台"]})
-        client._pro = MagicMock()
-        client._pro.stock_basic.return_value = mock_df
-        result = client.get_stock_basic(ts_code="600519.SH")
-        assert len(result) == 1
+        with patch.object(client._provider, "get_stock_basic", return_value=mock_df):
+            result = client.get_stock_basic(ts_code="600519.SH")
+            assert len(result) == 1
 
     def test_get_stock_basic_with_name(self, client):
-        mock_df = pd.DataFrame({"ts_code": ["600519.SH"], "name": ["贵州茅台"]})
-        client._pro = MagicMock()
-        client._pro.stock_basic.return_value = mock_df
-        result = client.get_stock_basic(name="贵州茅台")
-        assert len(result) == 1
+        mock_df = pd.DataFrame(
+            {"ts_code": ["600519.SH", "000001.SZ"], "name": ["贵州茅台", "平安银行"]}
+        )
+        with patch.object(client._provider, "get_stock_basic", return_value=mock_df):
+            result = client.get_stock_basic(name="茅台")
+            assert len(result) == 1
+            assert result.iloc[0]["ts_code"] == "600519.SH"
 
     def test_get_stock_basic_exception_returns_none(self, client):
-        client._pro = MagicMock()
-        client._pro.stock_basic.side_effect = Exception("API error")
-        result = client.get_stock_basic(ts_code="600519.SH")
-        assert result is None
+        with patch.object(client._provider, "get_stock_basic", side_effect=Exception("API error")):
+            result = client.get_stock_basic(ts_code="600519.SH")
+            assert result is None
 
     def test_get_limit_list(self, client):
         mock_df = pd.DataFrame({"ts_code": ["600519.SH"], "limit": ["U"]})
-        client._pro = MagicMock()
-        client._pro.limit_list_d.return_value = mock_df
-        result = client.get_limit_list("20260115")
-        assert len(result) == 1
+        with patch.object(client._provider, "_pro") as mock_pro:
+            mock_pro.limit_list_d.return_value = mock_df
+            result = client.get_limit_list("20260115")
+            assert len(result) == 1
 
     def test_get_top_list(self, client):
         mock_df = pd.DataFrame({"ts_code": ["600519.SH"]})
-        client._pro = MagicMock()
-        client._pro.top_list.return_value = mock_df
-        result = client.get_top_list("20260115")
-        assert len(result) == 1
+        with patch.object(client._provider, "_pro") as mock_pro:
+            mock_pro.top_list.return_value = mock_df
+            result = client.get_top_list("20260115")
+            assert len(result) == 1
 
     def test_get_financial_data(self, client):
         mock_df = pd.DataFrame({"ts_code": ["600519.SH"], "pe": [30.5]})
-        client._pro = MagicMock()
-        client._pro.fina_indicator.return_value = mock_df
-        result = client.get_financial_data("600519.SH", "20250101", "20260101")
-        assert len(result) == 1
+        with patch.object(client._provider, "get_financial_data", return_value=mock_df):
+            result = client.get_financial_data("600519.SH", "20250101", "20260101")
+            assert len(result) == 1
 
     def test_get_trade_cal(self, client):
         mock_df = pd.DataFrame({"exchange": ["SSE"], "is_open": [1]})
-        client._pro = MagicMock()
-        client._pro.trade_cal.return_value = mock_df
-        result = client.get_trade_cal(exchange="SSE", start_date="20260101", end_date="20260115")
-        assert len(result) == 1
+        with patch.object(client._provider, "get_trade_cal", return_value=mock_df):
+            result = client.get_trade_cal(exchange="SSE", start_date="20260101", end_date="20260115")
+            assert len(result) == 1
 
     def test_get_trade_cal_no_dates(self, client):
         mock_df = pd.DataFrame({"exchange": ["SSE"], "is_open": [1]})
-        client._pro = MagicMock()
-        client._pro.trade_cal.return_value = mock_df
-        result = client.get_trade_cal()
-        assert len(result) == 1
+        with patch.object(client._provider, "get_trade_cal", return_value=mock_df):
+            result = client.get_trade_cal()
+            assert len(result) == 1
 
     def test_check_connection_success(self, client):
-        mock_df = pd.DataFrame({"close": [100.0]})
-        with patch("modules.tushare_client.ts.pro_bar", return_value=mock_df):
+        with patch.object(client._provider, "check_connection", return_value=True):
             assert client.check_connection() is True
 
     def test_check_connection_failure(self, client):
-        with patch("modules.tushare_client.ts.pro_bar", return_value=pd.DataFrame()):
+        with patch.object(client._provider, "check_connection", return_value=False):
             assert client.check_connection() is False
 
     def test_check_connection_none(self, client):
-        with patch("modules.tushare_client.ts.pro_bar", return_value=None):
+        with patch.object(client._provider, "check_connection", return_value=False):
             assert client.check_connection() is False
 
 
