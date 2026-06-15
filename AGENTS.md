@@ -266,9 +266,12 @@ SQLite 数据库包含 8 张核心表（`modules/database.py` 中定义）：
 ### 安装依赖
 
 ```bash
+# pip
 pip install -r requirements.txt
-# 或
 pip install -e .
+
+# 或使用 uv（推荐，如已安装 uv）
+uv sync
 ```
 
 安装后可使用 `zt` 命令快捷调用。
@@ -278,9 +281,11 @@ pip install -e .
 ```bash
 # 全部测试（预期：367 passed, 10 skipped）
 python -m pytest tests/ -v
+uv run python -m pytest tests/ -v    # 使用 uv
 
 # 单文件测试
 python -m pytest tests/test_indicators.py -v
+uv run python -m pytest tests/test_indicators.py -v  # 使用 uv
 ```
 
 ### 数据库初始化与数据同步
@@ -350,7 +355,7 @@ python corpus/quality_check.py SKILL.md
 - **限流控制**：所有 Tushare API 调用必须带 `_rate_limit()`，控制 120 次/分钟
 - **事务管理**：数据库操作统一使用 `get_connection()` 上下文管理器（自动 commit/rollback）
 - **错误处理**：API 调用用 try/except 包裹，记录 error log，返回空 DataFrame/None 而非抛异常中断
-- **包安装**：使用 `pip install -e .` 安装后，可通过 `zt` 命令或 `python -m modules.cli` 调用
+- **包安装**：使用 `pip install -e .`（或 `uv sync`）安装后，可通过 `zt` 命令或 `python -m modules.cli` 调用
 
 ### 版本规则
 
@@ -471,8 +476,11 @@ $ python -m pytest tests/ -v
 ## 外部依赖安装
 
 ```bash
-# Python 依赖
+# pip
 pip install -r requirements.txt
+
+# 或使用 uv（推荐，如已安装 uv）
+uv sync
 
 # yt-dlp 可能需要 ffmpeg（处理音频）
 # macOS: brew install ffmpeg

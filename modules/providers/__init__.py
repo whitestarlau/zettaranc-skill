@@ -43,7 +43,7 @@ def create_default_provider(token: Optional[str] = None) -> DataSourceProvider:
     if not providers:
         logger.warning("create_default_provider: no data source providers available")
         raise RuntimeError(
-            "没有可用的数据源提供者。请安装 mootdx/baostock（pip install mootdx baostock）"
+            "没有可用的数据源提供者。请安装 mootdx/baostock（pip install mootdx baostock，或 uv pip install mootdx baostock）"
             "或配置 Tushare token。"
         )
 

@@ -13,8 +13,13 @@ zettaranc-skill 是 **AI Skill（思维框架蒸馏包）+ 真实数据量化工
 ### 安装与配置
 
 ```bash
+# pip
 pip install -r requirements.txt   # 安装依赖
 pip install -e .                  # 开发模式安装，注册 zt 命令
+
+# 或使用 uv（推荐，如已安装 uv）
+uv sync                            # 一键安装依赖 + 开发模式安装
+
 cp .env.example .env              # 配置 Tushare Token 和 API URL
 ```
 
@@ -25,6 +30,8 @@ python -m pytest tests/ -v                         # 全部测试（预期 ~367 
 python -m pytest tests/test_indicators.py -v        # 单文件测试
 python -m pytest tests/test_indicators.py -v -k b1  # 按关键字过滤单个测试
 python -m pytest tests/ -v --tb=long                # 长 traceback 调试
+# 使用 uv（推荐，如已安装）
+uv run python -m pytest tests/ -v
 ```
 
 ### Lint 与格式化
