@@ -14,12 +14,7 @@ import concurrent.futures
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-try:
-    import tushare as ts
-except ImportError:
-    print("请先安装依赖: pip install tushare")
-
-# dotenv 加载已移至 modules/__init__.py（包级别一次性加载，override=True）
+from modules.providers import DataSourceProvider, create_default_provider
 
 from .database import get_connection, get_db_path
 
@@ -33,9 +28,7 @@ _MAX_SYNC_WORKERS = 5
 # 新股前 5 日无限制。当前简化处理，v2.11.0 计划按 market 字段动态调整。
 _LIMIT_THRESHOLD = 9.9
 
-# 中转 API 配置（从环境变量读取）
-TUSHARE_API_URL = os.environ.get("TUSHARE_API_URL", "")
-VERIFY_TOKEN_URL = os.environ.get("TUSHARE_VERIFY_TOKEN_URL", "")
+
 
 
 # ==================== 模块级限流器（v2.10.0 P1-4） ====================
@@ -100,27 +93,26 @@ def _rate_limit_global() -> None:
 class DataSyncer:
     """数据同步器"""
 
-    def __init__(self, token: str | None = None):
+    def __init__(self, token: str | None = None, provider: DataSourceProvider | None = None):
         self.token = token or os.environ.get("TUSHARE_TOKEN")
-        # 仅在 JNB 模式下强制检查 Tushare 配置
         data_mode = os.getenv("DATA_MODE", "websearch")
-        if data_mode == "jnb":
-            if not self.token:
-                raise ValueError("JNB 模式下未设置 TUSHARE_TOKEN，请检查 .env 文件。")
-            if not TUSHARE_API_URL:
-                raise ValueError(
-                    "JNB 模式下未设置 TUSHARE_API_URL，请在 .env 中配置中转 API 地址。\n"
-                    "示例：TUSHARE_API_URL=https://tt.xiaodefa.cn"
-                )
 
-        # 初始化 Tushare
-        ts.set_token(self.token)
-        self.pro = ts.pro_api()
-        self.pro._DataApi__http_url = TUSHARE_API_URL
+        if provider:
+            self.provider = provider
+        else:
+            try:
+                self.provider = create_default_provider(token)
+            except RuntimeError:
+                if data_mode == "jnb":
+                    raise ValueError(
+                        "JNB 模式下需要配置 TUSHARE_TOKEN 和 TUSHARE_API_URL，"
+                        "或安装 mootdx/baostock 作为备选。"
+                        "示例：TUSHARE_API_URL=https://tt.xiaodefa.cn"
+                    )
+                raise
 
-        # 向后兼容：保留 instance-level attrs（外部可能引用）
-        # 但实际限流走模块级 _GLOBAL_LIMITER
-        # （v2.11.0 计划移除，改用 @property + DeprecationWarning）
+        # 向后兼容：保留 self.pro（可能为 None，如果 provider 不是 TushareProvider）
+        self.pro = getattr(self.provider, "_pro", None)
         self.last_request_time: dict[str, float] = {}
 
     def _rate_limit(self, api_name: str):
@@ -177,9 +169,7 @@ class DataSyncer:
         logger.info("开始同步股票基本信息...")
         try:
             self._rate_limit("stock_basic")
-            df = self.pro.stock_basic(
-                exchange="", list_status="L", fields="ts_code,name,area,industry,market,list_date,is_hs"
-            )
+            df = self.provider.get_stock_basic()
 
             if df is None or len(df) == 0:
                 logger.warning("获取股票基本信息失败")
@@ -229,13 +219,7 @@ class DataSyncer:
 
         try:
             self._rate_limit("daily_kline")
-            df = ts.pro_bar(
-                ts_code=ts_code,
-                start_date=start_date,
-                end_date=end_date,
-                adj="qfq",
-                api=self.pro,
-            )
+            df = self.provider.get_daily(ts_code, start_date, end_date)
 
             if df is None or len(df) == 0:
                 return 0
@@ -707,6 +691,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
                 end_date = datetime.now().strftime("%Y%m%d")
 
             self._rate_limit("stk_factor")
+            if self.pro is None:
+                logger.warning("stk_factor requires Tushare provider with _pro initialized")
+                return 0
             df = self.pro.stk_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
             if df is None or len(df) == 0:
@@ -858,11 +845,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
             if not end_date:
                 end_date = datetime.now().strftime("%Y%m%d")
 
-            df = self.pro.daily_basic(
-                ts_code=ts_code,
-                start_date=start_date,
-                end_date=end_date,
-            )
+            df = self.provider.get_daily_basic(ts_code, start_date, end_date)
 
             if df is None or len(df) == 0:
                 return 0
@@ -967,7 +950,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
         """
         try:
             self._rate_limit("moneyflow")
-            df = self.pro.moneyflow(ts_code=ts_code, trade_date=trade_date)
+            df = self.provider.get_moneyflow(ts_code, trade_date, trade_date)
 
             if df is None or len(df) == 0:
                 return 0
